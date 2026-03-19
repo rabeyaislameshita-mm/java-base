@@ -1,0 +1,34 @@
+## Global variables
+ARG IMAGE_VERSION
+ARG IMAGE_REPO
+
+## Temporal stage to build maven
+FROM $IMAGE_REPO:$IMAGE_VERSION as maven-build
+ARG MAVEN_VERSION
+ARG USER_HOME_DIR="/root"
+ARG BASE_URL=https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries
+
+ENV MAVEN_HOME /usr/share/maven
+ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
+
+RUN set -x \
+  && apt-get update \
+  && apt-get install -y ca-certificates curl --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/* \
+  && curl -fsSLO --compressed ${BASE_URL}/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+  && mkdir -p ${MAVEN_HOME} ${MAVEN_HOME}/ref \
+  && tar -xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz -C ${MAVEN_HOME} --strip-components=1 \
+  && (rm -rf apache-maven-${MAVEN_VERSION}-bin.tar.gz || true) \
+  && ln -s ${MAVEN_HOME}/bin/mvn /usr/bin/mvn \
+  # smoke test
+  && mvn --version
+
+FROM $IMAGE_REPO:$IMAGE_VERSION
+ARG USER_HOME_DIR="/root"
+ENV MAVEN_HOME /usr/share/maven
+ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
+ENV PATH=$MAVEN_HOME/bin:$PATH
+RUN apt-get update && apt-get install -y git --no-install-recommends && rm -rf /var/lib/apt/lists/*
+COPY --from=maven-build $MAVEN_HOME $MAVEN_HOME
+COPY mvn-entrypoint.sh /usr/local/bin/mvn-entrypoint.sh
+COPY settings-docker.xml /usr/share/maven/ref/
