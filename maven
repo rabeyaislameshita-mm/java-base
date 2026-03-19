@@ -24,7 +24,7 @@ RUN set -x \
   && mvn --version
 
 FROM $IMAGE_REPO:$IMAGE_VERSION
-ARG USER_HOME_DIR="/root"
+ARG USER_HOME_DIR="/home/maven"
 ENV MAVEN_HOME /usr/share/maven
 ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
 ENV PATH=$MAVEN_HOME/bin:$PATH
@@ -32,3 +32,7 @@ RUN apt-get update && apt-get install -y git --no-install-recommends && rm -rf /
 COPY --from=maven-build $MAVEN_HOME $MAVEN_HOME
 COPY mvn-entrypoint.sh /usr/local/bin/mvn-entrypoint.sh
 COPY settings-docker.xml /usr/share/maven/ref/
+RUN useradd -m -d "$USER_HOME_DIR" -s /bin/bash maven \
+  && mkdir -p "$USER_HOME_DIR/.m2" \
+  && chown -R maven:maven "$USER_HOME_DIR" "$MAVEN_HOME"
+USER maven
